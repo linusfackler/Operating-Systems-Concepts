@@ -34,7 +34,6 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
-    int timer = (int)argv[2];
     FILE *file = fopen(argv[1], "r");
     if (!file)
     {
@@ -51,8 +50,13 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
+    // -----------------------------------------------------
+    // -------------------- M E M O R Y --------------------
+    // -----------------------------------------------------
     else if (pid == 0)
     {
+        close(pipeMemory[1]);
+        close(pipeCPU[0]);
         int current_program = user_program;
         char input = [max_line_size];
         int size = sizeof(input);
@@ -92,12 +96,44 @@ int main(int argc, char* argv[])
         // finished reading file
 
         char instruction;
+        int read_int;
+        int store;
+
         while (true)
         {
-            read(pipeMemory[0], )
+            read(pipeMemory[0], &instruction, sizeof(char));
+            if (instruction == 'e')
+                break;
+            else if (instruction == 'r')
+            {
+                read(pipeMemory[0], &read_int, sizeof(int));
+                store = memory[read_int];
+                write(pipeCPU[1], &store, sizeof(int));
+            }
+            else if (instruction == 'w')
+            {
+                read(pipeMemory[0], &read_int, sizeof(int));
+                read(pipeMemory[0], &store, sizeof(int));
+                memory[read_int] = store;
+            }
         }
+    }
+    
+    // -----------------------------------------------------
+    // ----------------------- C P U -----------------------
+    // -----------------------------------------------------
+    else
+    {
+        int timer = (int)argv[2];
+        srand(time(0));         // set timer seed to time(0) (num of seconds since Jan 1, 1970)
+        int PC = 0, SP = 1000, IR = 0, AC = 0, X = 0, Y = 0;
 
-        
+        int user_stack   = 999;     // end of user memory (0 - 999)
+        int system_stack = 1999;    // end of system memory (1000 - 1999)
+
+        close(pipeMemory[0]);
+        close(pipeCPU[1]);
+
     }
     
 }

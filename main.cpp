@@ -126,14 +126,371 @@ int main(int argc, char* argv[])
     {
         int timer = (int)argv[2];
         srand(time(0));         // set timer seed to time(0) (num of seconds since Jan 1, 1970)
-        int PC = 0, SP = 1000, IR = 0, AC = 0, X = 0, Y = 0;
 
         int user_stack   = 999;     // end of user memory (0 - 999)
         int system_stack = 1999;    // end of system memory (1000 - 1999)
+        int mode = 0;               // 0 -> user mode | 1 -> kernel mode
+
+        int PC = 0, SP = user_stack, IR = 0, AC = 0, X = 0, Y = 0;
+        int tempPC, tempSP;
+        char instruction;
+
+        int value, address;
 
         close(pipeMemory[0]);
         close(pipeCPU[1]);
 
+        while(true)
+        {
+            //timer interrupt
+            if ((PC == timer) && (mode == 0))   // checks if in user mode
+            {
+                mode = 1;           // switches to kernel mode
+                timer += timer;
+                tempPC = PC;
+                tempSP = SP;
+                SP = system_stack;
+                PC = 1000;
+                
+                // push user sp into system stack
+                instruction = 'w';
+                write(pipeMemory[1], &instruction, sizeof(char));
+                write(pipeMemory[1], &SP, sizeof(int));
+                write(pipeMemory[1], &tempSP, sizeof(int));
+                SP--;
+
+                // push user pc into system stack
+                write(pipeMemory[1], &instruction, sizeof(char));
+                write(pipeMemory[1], &SP, sizeof(int));
+                write(pipeMemory[1], &tempPC, sizeof(int));
+            }
+
+            instruction = 'r';
+            write(pipeMemory[1], &instruction, sizeof(char));
+            write(pipeMemory[1], &PC, sizeof(int));
+            PC++;
+            read(pipeMemory[0], &IR, sizeof(int));
+            // reading instruction from memory into Instruction Register
+            
+            instruction = 'r';
+
+            switch (IR)     // Instruction set
+            {
+                case 1:     // Load the value into the AC
+                {
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC++;
+
+                    read(pipeCPU[0], &address, sizeof(int));
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &address, sizeof(int));
+                    read(pipeCPU[0], &value, sizeof(int));
+                    AC = value;
+                    break;
+                }
+
+                case 2:     // Load the value at the address into the AC
+                {
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC++;
+                    read(pipeCPU[0], &address, sizeof(int));
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &address, sizeof(int));
+                    read(pipeCPU[0], &instruction, sizeof(int));
+                    AC = value;
+                    break;
+                }
+
+                case 3:     // Load the value from the address found
+                {           // in the given address into the AC
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC++;
+                    read(pipeCPU[0], &address, sizeof(int));
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &address, sizeof(int));
+
+                    read(pipeCPU[0], &address, sizeof(int));
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &address, sizeof(int));
+                    read(pipeCPU[0], &value, sizeof(int);
+                    AC = value;
+                    break;
+                }
+                
+                case 4:     // Load the value at (address + X) into the AC
+                {
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC++;
+
+                    read(pipeCPU[0], &instruction, sizeof(int));
+                    address += X;
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &address, sizeof(int));
+                    read(pipeCPU[0], &value, sizeof(int));
+                    AC = value;
+                    break;
+                }  
+
+                case 5:     // Load the value at (address + Y) into the AC
+                {
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC++;
+
+                    read(pipeCPU[0], &instruction, sizeof(int));
+                    address += Y;
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &address, sizeof(int));
+                    read(pipeCPU[0], &value, sizeof(int));
+                    AC = value;
+                    break;
+                }
+
+                case 6:     // Load from (SP + X) into the AC
+                {
+                    address = SP + X;
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &address, sizeof(int));
+                    read(pipeCPU[0], &value, sizeof(int));
+                    AC = value;
+                    break;
+                }
+
+                case 7:     // Store the value in the AC into the address
+                {
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC++;
+                    read(pipeCPU[0], &address, sizeof(int));
+                    instruction = 'w';
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &address, sizeof(int));
+                    write(pipeMemory[1], &AC, sizeof(int));
+                    break;
+                }
+
+                case 8:     // Gets a random int from 1 to 100 into the AC
+                {
+                    AC = rand() % 100 + 1;
+                    cout << AC << endl;
+                    break;
+                }
+
+                case 9:     // If port = 1, writes AC as an int to the screen
+                {           // If port = 2, write AC as a char to the screen
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC++;
+                    read(pipeCPU[0], &value, sizeof(int));
+                    
+                    if (value == 1)
+                        cout << value << endl;
+                    else if (value == 2)
+                        cout << (char)value << endl;
+                    break;
+                }
+
+                case 10:    // Add the value in X to the AC
+                {
+                    AC += X;
+                    break;
+                }
+                
+                case 11:    // Add the value in Y to the AC
+                {
+                    AC += Y;
+                    break;
+                }
+
+                case 12:    // Subtract the value in X from the AC
+                {
+                    AC -= X;
+                    break;
+                }
+
+                case 13:    // Subtract the value in Y from the AC
+                {
+                    AC -= Y;
+                    break;
+                }
+
+                case 14:    // Copy the value in the AC to X
+                {
+                    X = AC;
+                    break;
+                }
+
+                case 15:    // Copy the value in X to the AC
+                {
+                    AC = X;
+                    break;
+                }
+
+                case 16:    // Copy the value in the AC to Y
+                {
+                    Y = AC;
+                    break;
+                }
+
+                case 17:    // Copy the value in Y to the AC
+                {
+                    AC = Y;
+                    break;
+                }
+
+                case 18:    // Copy the value in AC to the SP
+                {
+                    SP = AC;
+                    break;
+                }
+
+                case 19:    // Copy the value in SP to the AC
+                {
+                    AC = SP;
+                    break;
+                }
+
+                case 20:    // Jump to the address
+                {
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC++;
+
+                    read(pipeCPU[0], &instruction, sizeof(int));
+                    PC = address;
+                    break;
+                }
+
+                case 21:    // Jump to the address only if the
+                {           // value in the AC is zero
+                    PC++;
+                    if (AC == 0)
+                    {
+                        write(pipeMemory[1], &instruction, sizeof(char));
+                        write(pipeMemory[1], &PC, sizeof(int));
+                        read(pipeCPU[0], &address, sizeof(int));
+                        PC = address;
+                    }
+                    break;
+                }
+
+                case 22:    // Jump to the address only if the
+                {           // value in the AC is not zero
+                    PC++;
+                    if (AC != 0)
+                    {
+                        write(pipeMemory[1], &instruction, sizeof(char));
+                        write(pipeMemory[1], &PC, sizeof(int));
+                        read(pipeCPU[0], &address, sizeof(int));
+                        PC = address;
+                    }
+                    break;
+                }
+
+                case 23:    // Push return address onto stack
+                {           // jump to the address
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC++;
+                    read(pipeCPU[0], &address, sizeof(int));
+                    SP--;
+
+                    instruction = 'w';
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &SP, sizeof(int));
+                    write(pipeMemory[1], &PC, sizeof(int));
+                    PC = address;
+                    break;
+                }
+
+                case 24:    // Pop return address from stack, jump to address
+                {
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &SP, sizeof(int));
+                    read(pipeCPU[0], &address, sizeof(int));
+                    SP++;
+                    PC = address;
+                    break;
+                }
+
+                case 25:    // Increment the value in X
+                {
+                    X++;
+                    break;
+                }
+                
+                case 26:    // Decrement the value in X
+                {
+                    X--;
+                    break;
+                }
+
+                case 27:    // Push AC onto stack
+                {
+                    SP--;
+                    instruction = 'w';
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &SP, sizeof(int);
+                    write(pipeMemory[1], &AC, sizeof(int));
+                    break;
+                }
+
+                case 28:    // Pop from stack into AC
+                {
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &SP, sizeof(int));
+                    write(pipeCPU[0], &AC, sizeof(int));
+                    SP++;
+                    break;
+                }
+
+                case 29:    // Perform system call
+                {
+                    // similar to interrupt
+                    mode = 1;   // enter kernel mode
+                    tempSP = SP;    // save SP and PC
+                    tempPC = PC;
+                    SP = system_stack;
+                    PC = 1500;
+
+                    instruction = 'w';
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &SP, sizeof(int));
+                    write(pipeMemory[1], &tempSP, sizeof(int));
+                    SP--;
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &SP, sizeof(int));
+                    write(pipeMemory[1], &tempPC, sizeof(int));
+                    break;
+                }
+
+                case 30:    // Return from system call
+                {
+                    mode = 1;   // enter user mode
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &SP, sizeof(int));
+                    read(pipeCPU[0], &tempPC, sizeof(int));
+                    SP++;
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    write(pipeMemory[1], &SP, sizeof(int));
+                    reaD(pipeCPU[0], &tempSP, sizeof(int));
+                    SP++;
+
+                    PC = tempPC;
+                    SP = tempSP;    // restore saved values
+                }
+
+                case 50:    // End execution
+                {
+                    instruction = 'e';  // exit
+                    write(pipeMemory[1], &instruction, sizeof(char));
+                    return(0);
+                }
+            }
+        }
     }
-    
 }

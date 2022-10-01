@@ -10,8 +10,12 @@
 int pipeMemory[2], pipeCPU[2];
 int const READ      = 0;
 int const WRITE     = 1;
-int const PIPE_ERROR    = -1;
-int const CHILD_PID     =  0;
+int const PIPE_ERROR        = -1;
+int const CHILD_PID         =  0;
+int const user_program      = 0;
+int const system_program    = 1000;
+int const max_line_size     = 1000;
+int memory[2000];
 
 using namespace std;
 
@@ -31,12 +35,13 @@ int main(int argc, char* argv[])
     }
 
     int timer = (int)argv[2];
-    FILE *input = fopen(argv[1], "r");
-    if (!input)
+    FILE *file = fopen(argv[1], "r");
+    if (!file)
     {
         cout << "File does not exist. Try again." << endl;
         exit(EXIT_FAILURE);
     }
+
 
     int pid = fork();
 
@@ -48,11 +53,51 @@ int main(int argc, char* argv[])
 
     else if (pid == 0)
     {
-        int memory[2000];
-        int user_program = 0;
-        int system_program = 1000;
+        int current_program = user_program;
+        char input = [max_line_size];
+        int size = sizeof(input);
 
-        char *line;
+        bool change_address = false;
+
+        while(fgets(input, max_line_size, file) != NULL)
+        {
+            char *temp;
+            int i = 0;
+
+            if (input[0] == '.')
+            {
+                change_address = true;
+                i++;
+            }
+            
+            while (isdigit(input[i]))
+            {
+                temp[i] = input[i];
+                i++;
+            }
+
+            if (change_address)
+            {
+                for (int j = 0; j < sizeof(temp) - 1; j++)
+                    temp[j] = temp[j + 1];
+                current_program = atoi(temp);
+            }
+
+            else if (isdigit(input[0]))
+            {
+                memory[current_program] = atoi(temp);
+                current_program++;
+            }
+        }
+        // finished reading file
+
+        char instruction;
+        while (true)
+        {
+            read(pipeMemory[0], )
+        }
+
+        
     }
     
 }

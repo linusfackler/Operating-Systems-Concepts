@@ -12,7 +12,7 @@ int pipeMemory[2], pipeCPU[2];
 int const READ      = 0;
 int const WRITE     = 1;
 int const PIPE_ERROR        = -1;
-int const CHILD_PID         =  0;
+int const MEMORY_PID         =  0;
 int const user_program      = 0;
 int const system_program    = 1000;
 int const max_line_size     = 1000;
@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
     // -----------------------------------------------------
     // -------------------- M E M O R Y --------------------
     // -----------------------------------------------------
-    else if (pid == 0)
+    else if (pid == MEMORY_PID)
     {
         //printf("In MEMORY now!!!\n\n\n");
         int memory[2000];
@@ -67,11 +67,8 @@ int main(int argc, char* argv[])
 
         while(fgets(input, max_line_size, file) != NULL)
         {
-            //printf("should be reading in now...\n");
             char temp[6] = {'\0', '\0', '\0', '\0', '\0', '\0'};
             int i = 0;
-            //printf(input[i] + "\n");
-            //cout << "i: " << i << endl << endl;
             change_address = false;
 
             if (input[0] == '.')
@@ -82,17 +79,12 @@ int main(int argc, char* argv[])
             
             while (isdigit(input[i]))
             {
-                //cout << "input[i]: " << input[i] << endl;
                 temp[i] = input[i];
-                //cout << "temp[i]: " << temp[i] << endl;
                 i++;
             }
 
-            //cout << "get past the second if" << endl;
-
             if (change_address)
             {
-                //cout << "about to change address. size of temp is: " << sizeof(temp) << endl << endl;
                 for (int j = 0; j < 5; j++)
                     temp[j] = temp[j + 1];
                 current_program = atoi(temp);
@@ -188,13 +180,6 @@ int main(int argc, char* argv[])
             PC++;
             read(pipeCPU[0], &IR, sizeof(int));
             // reading instruction from memory into Instruction Register
-            
-            //instruction = 'r';
-            //cout << "IR: " << IR << endl;
-
-
-
-
 
             // ---------------------------------------------------------------------------------------
             // ------------------- IR ------------
@@ -209,7 +194,6 @@ int main(int argc, char* argv[])
                     PC++;
                     read(pipeCPU[0], &value, sizeof(int));
                     AC = value;
-                    //printf("AC after we set it = %d\n", AC);
                     break;
                 }
 
@@ -253,9 +237,7 @@ int main(int argc, char* argv[])
                     PC++;
 
                     read(pipeCPU[0], &address, sizeof(int));
-                    //cout << "Case 4: address BEFORE: " << address << endl;
                     address += X;
-                    //cout << "Case 4: address AFTER: " << address << endl;
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &address, sizeof(int));
                     read(pipeCPU[0], &value, sizeof(int));
@@ -353,9 +335,7 @@ int main(int argc, char* argv[])
 
                 case 14:    // Copy the value in the AC to X
                 {
-                    //printf("X before we set it = %d\n", X);
                     X = AC;
-                    //printf("X after we set it = %d\n", X);
                     break;
                 }
 

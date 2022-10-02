@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
             //printf("should be reading in now...\n");
             char temp[6] = {'\0', '\0', '\0', '\0', '\0', '\0'};
             int i = 0;
-            printf(input[i] + "\n");
+            //printf(input[i] + "\n");
             //cout << "i: " << i << endl << endl;
             change_address = false;
 
@@ -109,6 +109,8 @@ int main(int argc, char* argv[])
         char instruction;
         int address;
         int value;
+        close(pipeMemory[1]);
+        close(pipeCPU[0]);
 
         while (true)
         {
@@ -136,7 +138,6 @@ int main(int argc, char* argv[])
     // -----------------------------------------------------
     else
     {
-        //printf("In CPU now!!!\n\n\n");
         int timer = atoi(argv[2]);
         srand(time(0));         // set timer seed to time(0) (num of seconds since Jan 1, 1970)
 
@@ -149,6 +150,7 @@ int main(int argc, char* argv[])
         char instruction;
 
         int value, address;
+        bool ex = false;    // writes exits when true
 
         close(pipeMemory[0]);
         close(pipeCPU[1]);
@@ -188,7 +190,15 @@ int main(int argc, char* argv[])
             // reading instruction from memory into Instruction Register
             
             //instruction = 'r';
-            cout << "IR: " << IR << endl;
+            //cout << "IR: " << IR << endl;
+
+
+
+
+
+            // ---------------------------------------------------------------------------------------
+            // ------------------- IR ------------
+            // ---------------------------------------------------------------------------------------
             switch (IR)     // Instruction set
             {
                 case 1:     // Load the value into the AC
@@ -197,13 +207,9 @@ int main(int argc, char* argv[])
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
-
-                    read(pipeCPU[0], &address, sizeof(int));
-                    write(pipeMemory[1], &instruction, sizeof(char));
-                    write(pipeMemory[1], &address, sizeof(int));
                     read(pipeCPU[0], &value, sizeof(int));
                     AC = value;
-                    printf("AC after we set it = %d\n", AC);
+                    //printf("AC after we set it = %d\n", AC);
                     break;
                 }
 
@@ -247,9 +253,9 @@ int main(int argc, char* argv[])
                     PC++;
 
                     read(pipeCPU[0], &address, sizeof(int));
-                    cout << "Case 4: address BEFORE: " << address << endl;
+                    //cout << "Case 4: address BEFORE: " << address << endl;
                     address += X;
-                    cout << "Case 4: address AFTER: " << address << endl;
+                    //cout << "Case 4: address AFTER: " << address << endl;
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &address, sizeof(int));
                     read(pipeCPU[0], &value, sizeof(int));
@@ -301,6 +307,7 @@ int main(int argc, char* argv[])
                 case 8:     // Gets a random int from 1 to 100 into the AC
                 {
                     AC = rand() % 100 + 1;
+                    printf("AC = %d\n", AC);
                     break;
                 }
 
@@ -313,10 +320,10 @@ int main(int argc, char* argv[])
                     read(pipeCPU[0], &value, sizeof(int));
                     
                     if (value == 1)
-                        printf("%d",value);
+                        printf("%d",AC);
                         
                     else if (value == 2)
-                        printf("%d",value);
+                        printf("%c",AC);
                     break;
                 }
 
@@ -346,9 +353,9 @@ int main(int argc, char* argv[])
 
                 case 14:    // Copy the value in the AC to X
                 {
-                    printf("X before we set it = %d\n", X);
+                    //printf("X before we set it = %d\n", X);
                     X = AC;
-                    printf("X after we set it = %d\n", X);
+                    //printf("X after we set it = %d\n", X);
                     break;
                 }
 
@@ -389,7 +396,7 @@ int main(int argc, char* argv[])
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
 
-                    read(pipeCPU[0], &instruction, sizeof(int));
+                    read(pipeCPU[0], &address, sizeof(int));
                     PC = address;
                     break;
                 }
@@ -484,7 +491,7 @@ int main(int argc, char* argv[])
                     instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &SP, sizeof(int));
-                    write(pipeCPU[0], &AC, sizeof(int));
+                    read(pipeCPU[0], &AC, sizeof(int));
                     SP++;
                     break;
                 }
@@ -512,7 +519,7 @@ int main(int argc, char* argv[])
                 case 30:    // Return from system call
                 {
                     instruction = 'r';
-                    mode = 1;   // enter user mode
+                    mode = 0;   // enter user mode
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &SP, sizeof(int));
                     read(pipeCPU[0], &tempPC, sizeof(int));
@@ -524,15 +531,23 @@ int main(int argc, char* argv[])
 
                     PC = tempPC;
                     SP = tempSP;    // restore saved values
+                    break;
                 }
 
                 case 50:    // End execution
                 {
                     instruction = 'e';  // exit
                     write(pipeMemory[1], &instruction, sizeof(char));
-                    return(0);
+                    ex = true;
+                    break;
                 }
             }
+            if (ex)
+                break;
+
+            // ---------------------------------------------------------------------------------------
+            // -------------------------------------IR------------------------------------------------
+            // ---------------------------------------------------------------------------------------
         }
     }
 }

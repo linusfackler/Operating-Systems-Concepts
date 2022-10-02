@@ -107,26 +107,27 @@ int main(int argc, char* argv[])
         // finished reading file
 
         char instruction;
-        int read_int;
-        int store;
+        int address;
+        int value;
 
         while (true)
         {
             read(pipeMemory[0], &instruction, sizeof(char));
-            if (instruction == 'e')
-                break;
-            else if (instruction == 'r')
+
+            if (instruction == 'r')
             {
-                read(pipeMemory[0], &read_int, sizeof(int));
-                store = memory[read_int];
-                write(pipeCPU[1], &store, sizeof(int));
+                read(pipeMemory[0], &address, sizeof(int));
+                value = memory[address];
+                write(pipeCPU[1], &value, sizeof(int));
             }
             else if (instruction == 'w')
             {
-                read(pipeMemory[0], &read_int, sizeof(int));
-                read(pipeMemory[0], &store, sizeof(int));
-                memory[read_int] = store;
+                read(pipeMemory[0], &address, sizeof(int));
+                read(pipeMemory[0], &value, sizeof(int));
+                memory[address] = value;
             }
+            else if (instruction == 'e')
+                break;
         }
     }
     
@@ -143,7 +144,7 @@ int main(int argc, char* argv[])
         int system_stack = 1999;    // end of system memory (1000 - 1999)
         int mode = 0;               // 0 -> user mode | 1 -> kernel mode
 
-        int PC = 0, SP = user_stack, IR = 0, AC = 0, X = 0, Y = 0;
+        int PC = 0, SP = user_stack, IR = 0, AC = 0, X, Y;
         int tempPC, tempSP;
         char instruction;
 
@@ -202,6 +203,7 @@ int main(int argc, char* argv[])
                     write(pipeMemory[1], &address, sizeof(int));
                     read(pipeCPU[0], &value, sizeof(int));
                     AC = value;
+                    printf("AC after we set it = %d\n", AC);
                     break;
                 }
 
@@ -244,8 +246,10 @@ int main(int argc, char* argv[])
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
 
-                    read(pipeCPU[0], &instruction, sizeof(int));
+                    read(pipeCPU[0], &address, sizeof(int));
+                    cout << "Case 4: address BEFORE: " << address << endl;
                     address += X;
+                    cout << "Case 4: address AFTER: " << address << endl;
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &address, sizeof(int));
                     read(pipeCPU[0], &value, sizeof(int));
@@ -260,7 +264,7 @@ int main(int argc, char* argv[])
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
 
-                    read(pipeCPU[0], &instruction, sizeof(int));
+                    read(pipeCPU[0], &address, sizeof(int));
                     address += Y;
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &address, sizeof(int));
@@ -342,7 +346,9 @@ int main(int argc, char* argv[])
 
                 case 14:    // Copy the value in the AC to X
                 {
+                    printf("X before we set it = %d\n", X);
                     X = AC;
+                    printf("X after we set it = %d\n", X);
                     break;
                 }
 

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <time.h>
+#include <iostream>
 
 int pipeMemory[2], pipeCPU[2];
 int const READ      = 0;
@@ -15,7 +16,6 @@ int const CHILD_PID         =  0;
 int const user_program      = 0;
 int const system_program    = 1000;
 int const max_line_size     = 1000;
-int memory[2000];
 
 using namespace std;
 
@@ -23,30 +23,30 @@ int main(int argc, char* argv[])
 {
     if (argc != 3)
     {
-        cout << "I need 2 arguments to work. Try again." << endl;
-        cout << "Input file & timer value" << endl;
+        printf("I need 2 arguments to work. Try again.\n");
+        printf("Input file & timer value\n");
         exit(EXIT_FAILURE);
     }
 
     if (pipe(pipeMemory) == PIPE_ERROR || pipe(pipeCPU) == PIPE_ERROR)
     {
-        cout << "Pipe failed. Try again." << endl;
+        printf("Pipe failed. Try again.\n");
         exit(EXIT_FAILURE);
     }
 
     FILE *file = fopen(argv[1], "r");
     if (!file)
     {
-        cout << "File does not exist. Try again." << endl;
+        printf("File does not exist. Try again.\n");
         exit(EXIT_FAILURE);
     }
 
 
     int pid = fork();
 
-    if (pid < 0>)
+    if (pid < 0)
     {
-        cout << "Invalid process. Try again." << endl;
+        printf("Invalid process. Try again.");
         exit(EXIT_FAILURE);
     }
 
@@ -55,18 +55,24 @@ int main(int argc, char* argv[])
     // -----------------------------------------------------
     else if (pid == 0)
     {
+        //printf("In MEMORY now!!!\n\n\n");
+        int memory[2000];
         close(pipeMemory[1]);
         close(pipeCPU[0]);
         int current_program = user_program;
-        char input = [max_line_size];
+        char input [max_line_size];
         int size = sizeof(input);
 
         bool change_address = false;
 
         while(fgets(input, max_line_size, file) != NULL)
         {
-            char *temp;
+            //printf("should be reading in now...\n");
+            char temp[6] = {'\0', '\0', '\0', '\0', '\0', '\0'};
             int i = 0;
+            printf(input[i] + "\n");
+            //cout << "i: " << i << endl << endl;
+            change_address = false;
 
             if (input[0] == '.')
             {
@@ -76,13 +82,18 @@ int main(int argc, char* argv[])
             
             while (isdigit(input[i]))
             {
+                //cout << "input[i]: " << input[i] << endl;
                 temp[i] = input[i];
+                //cout << "temp[i]: " << temp[i] << endl;
                 i++;
             }
 
+            //cout << "get past the second if" << endl;
+
             if (change_address)
             {
-                for (int j = 0; j < sizeof(temp) - 1; j++)
+                //cout << "about to change address. size of temp is: " << sizeof(temp) << endl << endl;
+                for (int j = 0; j < 5; j++)
                     temp[j] = temp[j + 1];
                 current_program = atoi(temp);
             }
@@ -124,7 +135,8 @@ int main(int argc, char* argv[])
     // -----------------------------------------------------
     else
     {
-        int timer = (int)argv[2];
+        //printf("In CPU now!!!\n\n\n");
+        int timer = atoi(argv[2]);
         srand(time(0));         // set timer seed to time(0) (num of seconds since Jan 1, 1970)
 
         int user_stack   = 999;     // end of user memory (0 - 999)
@@ -143,7 +155,7 @@ int main(int argc, char* argv[])
         while(true)
         {
             //timer interrupt
-            if ((PC == timer) && (mode == 0))   // checks if in user mode
+            if ((mode == 0) && (PC == timer))   // checks if in user mode
             {
                 mode = 1;           // switches to kernel mode
                 timer += timer;
@@ -163,21 +175,24 @@ int main(int argc, char* argv[])
                 write(pipeMemory[1], &instruction, sizeof(char));
                 write(pipeMemory[1], &SP, sizeof(int));
                 write(pipeMemory[1], &tempPC, sizeof(int));
+
+                //continue;
             }
 
             instruction = 'r';
             write(pipeMemory[1], &instruction, sizeof(char));
             write(pipeMemory[1], &PC, sizeof(int));
             PC++;
-            read(pipeMemory[0], &IR, sizeof(int));
+            read(pipeCPU[0], &IR, sizeof(int));
             // reading instruction from memory into Instruction Register
             
-            instruction = 'r';
-
+            //instruction = 'r';
+            cout << "IR: " << IR << endl;
             switch (IR)     // Instruction set
             {
                 case 1:     // Load the value into the AC
                 {
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
@@ -192,19 +207,21 @@ int main(int argc, char* argv[])
 
                 case 2:     // Load the value at the address into the AC
                 {
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
                     read(pipeCPU[0], &address, sizeof(int));
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &address, sizeof(int));
-                    read(pipeCPU[0], &instruction, sizeof(int));
+                    read(pipeCPU[0], &value, sizeof(int));
                     AC = value;
                     break;
                 }
 
                 case 3:     // Load the value from the address found
                 {           // in the given address into the AC
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
@@ -215,13 +232,14 @@ int main(int argc, char* argv[])
                     read(pipeCPU[0], &address, sizeof(int));
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &address, sizeof(int));
-                    read(pipeCPU[0], &value, sizeof(int);
+                    read(pipeCPU[0], &value, sizeof(int));
                     AC = value;
                     break;
                 }
                 
                 case 4:     // Load the value at (address + X) into the AC
                 {
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
@@ -237,6 +255,7 @@ int main(int argc, char* argv[])
 
                 case 5:     // Load the value at (address + Y) into the AC
                 {
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
@@ -252,6 +271,7 @@ int main(int argc, char* argv[])
 
                 case 6:     // Load from (SP + X) into the AC
                 {
+                    instruction = 'r';
                     address = SP + X;
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &address, sizeof(int));
@@ -262,6 +282,7 @@ int main(int argc, char* argv[])
 
                 case 7:     // Store the value in the AC into the address
                 {
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
@@ -276,21 +297,22 @@ int main(int argc, char* argv[])
                 case 8:     // Gets a random int from 1 to 100 into the AC
                 {
                     AC = rand() % 100 + 1;
-                    cout << AC << endl;
                     break;
                 }
 
                 case 9:     // If port = 1, writes AC as an int to the screen
                 {           // If port = 2, write AC as a char to the screen
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
                     read(pipeCPU[0], &value, sizeof(int));
                     
                     if (value == 1)
-                        cout << value << endl;
+                        printf("%d",value);
+                        
                     else if (value == 2)
-                        cout << (char)value << endl;
+                        printf("%d",value);
                     break;
                 }
 
@@ -356,6 +378,7 @@ int main(int argc, char* argv[])
 
                 case 20:    // Jump to the address
                 {
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
@@ -367,11 +390,16 @@ int main(int argc, char* argv[])
 
                 case 21:    // Jump to the address only if the
                 {           // value in the AC is zero
-                    PC++;
                     if (AC == 0)
                     {
+                        instruction = 'r';
                         write(pipeMemory[1], &instruction, sizeof(char));
                         write(pipeMemory[1], &PC, sizeof(int));
+                    }
+                    PC++;
+
+                    if (AC == 0)
+                    {
                         read(pipeCPU[0], &address, sizeof(int));
                         PC = address;
                     }
@@ -380,11 +408,15 @@ int main(int argc, char* argv[])
 
                 case 22:    // Jump to the address only if the
                 {           // value in the AC is not zero
+                    if (AC != 0)
+                    {
+                        instruction = 'r';
+                        write(pipeMemory[1], &instruction, sizeof(char));
+                        write(pipeMemory[1], &PC, sizeof(int));
+                    }
                     PC++;
                     if (AC != 0)
                     {
-                        write(pipeMemory[1], &instruction, sizeof(char));
-                        write(pipeMemory[1], &PC, sizeof(int));
                         read(pipeCPU[0], &address, sizeof(int));
                         PC = address;
                     }
@@ -393,6 +425,7 @@ int main(int argc, char* argv[])
 
                 case 23:    // Push return address onto stack
                 {           // jump to the address
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &PC, sizeof(int));
                     PC++;
@@ -409,6 +442,7 @@ int main(int argc, char* argv[])
 
                 case 24:    // Pop return address from stack, jump to address
                 {
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &SP, sizeof(int));
                     read(pipeCPU[0], &address, sizeof(int));
@@ -434,13 +468,14 @@ int main(int argc, char* argv[])
                     SP--;
                     instruction = 'w';
                     write(pipeMemory[1], &instruction, sizeof(char));
-                    write(pipeMemory[1], &SP, sizeof(int);
+                    write(pipeMemory[1], &SP, sizeof(int));
                     write(pipeMemory[1], &AC, sizeof(int));
                     break;
                 }
 
                 case 28:    // Pop from stack into AC
                 {
+                    instruction = 'r';
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &SP, sizeof(int));
                     write(pipeCPU[0], &AC, sizeof(int));
@@ -470,6 +505,7 @@ int main(int argc, char* argv[])
 
                 case 30:    // Return from system call
                 {
+                    instruction = 'r';
                     mode = 1;   // enter user mode
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &SP, sizeof(int));
@@ -477,7 +513,7 @@ int main(int argc, char* argv[])
                     SP++;
                     write(pipeMemory[1], &instruction, sizeof(char));
                     write(pipeMemory[1], &SP, sizeof(int));
-                    reaD(pipeCPU[0], &tempSP, sizeof(int));
+                    read(pipeCPU[0], &tempSP, sizeof(int));
                     SP++;
 
                     PC = tempPC;

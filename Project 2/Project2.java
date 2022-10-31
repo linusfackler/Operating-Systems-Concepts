@@ -17,7 +17,7 @@ public class Project2 extends Thread
     public static Queue<Integer> agentQueue = new LinkedList<Integer>();
 
     // semaphores
-    Semaphore customerReady = new Semaphore(0);
+    Semaphore customerToGetNumber = new Semaphore(0);
     Semaphore customerToBeServed = new Semaphore(0);
     Semaphore agentFree = new Semaphore(AGENTS);
     Semaphore mutex1 = new Semaphore(1, true);
@@ -46,7 +46,7 @@ public class Project2 extends Thread
                 mutex1.release();
 
                 System.out.println("Customer " + customerNumber + " gets number " + waitNumber + ", enters waiting room");
-                customerReady.release();
+                customerToGetNumber.release();
             }
             catch(Exception e)
             {
@@ -95,7 +95,7 @@ public class Project2 extends Thread
             {
                 while (true)
                 {
-                    customerReady.acquire();
+                    customerToGetNumber.acquire();
                     agentFree.acquire();
                     mutex2.acquire();
                     mutex3.acquire();

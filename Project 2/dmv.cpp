@@ -5,7 +5,9 @@
 #include <semaphore.h>
 #include <unistd.h>
 
-sem_t callNumber
+
+sem_t agentLine;
+
 
 const int MAX_CUSTOMER = 20;
 const int AGENTS = 2;
@@ -32,5 +34,5 @@ void *AgentThread(void *arg)
 
 int main()
 {
-    
+
 }
